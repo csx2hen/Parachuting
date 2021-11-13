@@ -18,3 +18,4 @@ This is a game that a skydiving enthusiast need to avoid obstacles in the sky an
 
 ## Team Members
 - Shen Chen (shc005@ucsd.edu)
+- Ke Wan (kewan@ucsd.edu)
