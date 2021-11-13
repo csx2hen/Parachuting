@@ -17,3 +17,4 @@ This is a game that a skydiving enthusiast need to avoid obstacles in the sky an
 - Graphics.Vty
 
 ## Team Members
+- Shen Chen (shc005@ucsd.edu)
