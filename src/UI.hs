@@ -79,7 +79,7 @@ gameInit =
       modifyIORef counter (+1)
       c' <- readIORef counter
       BChan.writeBChan channel Tick
-      threadDelay (max (65000 - c' * 10) 35000)
+      threadDelay (max (65000 - c' * 10) 250000)
     -- threadDelay 35000
     state <- initState 0
     let builder = V.mkVty V.defaultConfig
