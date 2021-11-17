@@ -9,6 +9,7 @@ import qualified Data.Sequence as SEQ
 import Control.Lens (makeLenses, (^.), (.~), (%~), (&), _1, _2)
 import Data.Maybe (fromMaybe)
 import Control.Monad (guard)
+import Prelude hiding (Right, Left)
 
 type Name = ()
 type Score = Int
@@ -18,7 +19,7 @@ type Obstacle = [Coordinate] -- list of Obstacles
 
 data Tick = Tick
 
-data Direction = Down | Still deriving (Eq, Show)
+data Direction = Left| Right | Up | Down | Still deriving (Eq, Show)
 
 data Game = Game
   { 
@@ -26,6 +27,7 @@ data Game = Game
     _direction :: Direction,
     _obstacles :: SEQ.Seq Obstacle,
     _score     :: Score,
+    _initScore :: Score,
     _highScore :: Score,
     _alive     :: Bool,
     _paused    :: Bool
@@ -56,7 +58,8 @@ initState highestScore =
                   _score     = 0,
                   _highScore = highestScore,
                   _alive     = True,
-                  _paused    = False
+                  _paused    = False,
+                  _initScore  = 0
                 }
 
 
@@ -96,26 +99,40 @@ step' = move
 
 -- Moving functions
 -- | Move everything on the screen
+-- if we want to use Single step mode, we need to delete movePlayer
 move :: Game -> Game
-move = movePlayer . moveObstacles . createObstacles
+move ={-  movePlayer . -} moveObstacles . createObstacles . incScore
 
 
 movePlayer :: Game -> Game
 movePlayer g = let dir = g^.direction in
   case dir of
-    Parachuting.Still  -> if shouldUp g then movePlayerVertically 1 g else g
-    Parachuting.Down  -> if shouldDown g then movePlayerVertically (-1) g else g
-    _                  -> g 
+    Down   -> movePlayerVertically Down g 
+    Up     -> movePlayerVertically Up g 
+    Left   -> movePlayerHorizontally Left g
+    Right  -> movePlayerHorizontally Right g
+    Still  -> g
 {-     Up   -> if shouldStopDino d g then setDinoDir Down g else moveDino' 1 g
     Down -> if shouldStopDino d g then setDinoDir Still g else
               (let gNext = moveDino' (-1) g in
                 if isDinoBottom gNext then setDinoDir Still gNext else gNext)
     Duck -> if shouldStopDino d g then g else moveDino' (-1) g -}
-  
--- | Moves player left or right
-movePlayerVertically :: Int -> Game -> Game
-movePlayerVertically amt g = g & player %~ fmap (+ V2 0 amt)
 
+-- | Moves player Up or Down
+movePlayerVertically :: Direction -> Game -> Game
+movePlayerVertically dir g = 
+  case dir of
+    Up -> if shouldUp g then g & player %~ fmap (+ V2 0 1) else g
+    Down  -> if shouldDown g then g & player %~ fmap (+ V2 0 (-1)) else g
+    _ -> g
+
+-- | Moves player Left or Right
+movePlayerHorizontally :: Direction -> Game -> Game
+movePlayerHorizontally dir g = 
+  case dir of
+    Left  -> if shouldLeft g then g & player %~ fmap (+ V2 (-1) 0) else g
+    Right -> if shouldRight g then g & player %~ fmap (+ V2 1 0) else g
+    _ -> g
 
 shouldUp :: Game -> Bool
 shouldUp g = (maximum [coord^._2 | coord <- g^.player]) < gridHeight - 1
@@ -129,7 +146,14 @@ shouldLeft g = (minimum [coord^._1 | coord <- g^.player]) > 0
 shouldRight :: Game -> Bool
 shouldRight g = (minimum [coord^._1 | coord <- g^.player]) < gridWidth - 1
 
-
+moveSingleStep :: Direction -> Game -> Game
+moveSingleStep dir g = 
+  case dir of
+    Left -> if shouldLeft g then movePlayerHorizontally Left g else g
+    Right -> if shouldLeft g then movePlayerHorizontally Right g else g
+    Up -> if shouldUp g then movePlayerVertically Up g else g
+    Down -> if shouldDown g then movePlayerVertically Down g else g
+    Still -> g
 
 -- Obstacle functions
 -- | Move all the obstacles
@@ -142,3 +166,13 @@ moveObstacle = fmap (+ V2 0 1)
 
 createObstacles :: Game -> Game
 createObstacles g = g 
+
+
+constScoreMod :: Score
+constScoreMod = 3
+
+incScore :: Game -> Game
+incScore g = case g^.initScore of
+  0 -> g & score %~ (+1) & initScore %~ incAndMod
+  _ -> g & initScore %~ incAndMod
+  where incAndMod x = (x + 1) `mod` constScoreMod

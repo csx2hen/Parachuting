@@ -14,7 +14,7 @@ import Control.Monad ( forever )
 import Brick.Util ( fg, on )
 import Data.IORef ( IORef, modifyIORef, newIORef, readIORef )
 import GHC.IO (unsafePerformIO)
-import Controls(handleEvent)
+import Controls(handleEvent, handleEventStep)
 
 import Brick
   ( App(..), BrickEvent(..), Padding(..), EventM, Next, Widget, AttrName, AttrMap,
@@ -29,7 +29,7 @@ data Cell = Player | Obstacle | Empty
 app :: App Game Tick Name
 app = App { appDraw = drawUI
           , appChooseCursor = neverShowCursor
-          , appHandleEvent = handleEvent
+          , appHandleEvent = handleEventStep
           , appStartEvent = return
           , appAttrMap = const theMap
           }
@@ -39,12 +39,19 @@ drawUI :: Game -> [Widget Name]
 drawUI g = [C.center (padRight (Pad 2) (drawGrid g <+> drawStats g))]
 
 drawStats :: Game -> Widget Name
-drawStats g = hLimit 30 (vBox [drawScore (g^.score), 
+drawStats g = hLimit 30 (vBox [drawScore (g^.score), padTop (Pad 2) (drawBestScore (g^.highScore)),
                          padTop (Pad 2) (drawGameOver (g^.alive))])
 
-drawScore :: Score  -> Widget Name
+drawScore :: Score -> Widget Name
 drawScore n = withBorderStyle BS.unicodeBold
   $ B.borderWithLabel (str " current score ")
+  $ C.hCenter
+  $ padAll 1
+  $ str (show n)
+
+drawBestScore :: Score -> Widget Name
+drawBestScore n = withBorderStyle BS.unicodeBold
+  $ B.borderWithLabel (str " best score ")
   $ C.hCenter
   $ padAll 1
   $ str (show n)
