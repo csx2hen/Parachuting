@@ -10,6 +10,16 @@ This is a game that a skydiving enthusiast need to avoid obstacles in the sky an
 - [ ] Contain various obstacles over time
 - [ ] Adjust speed of the game
 
+
+## Install
+```
+git clone git@github.com:csx2hen/parachute.git
+cd parachute
+stack build
+stack exec parachute-exe
+```
+
+
 ## Libraries
 - brick
 - random
