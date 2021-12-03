@@ -1,5 +1,5 @@
 module Controls where
-import Parachuting (Game (..), Tick(..), Name(..), direction, Direction (..), step, player, shouldRight, shouldLeft, moveSingleStep)
+import Parachute (Game (..), Tick(..), Name(..), direction, Direction (..), step, player, shouldRight, shouldLeft, moveSingleStep)
 import Brick ( continue, halt, EventM, BrickEvent(VtyEvent, AppEvent), Next)
 import qualified Graphics.Vty as V
 import Control.Lens ((^.), (&), (.~), (%~))

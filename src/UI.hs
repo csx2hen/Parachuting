@@ -1,6 +1,6 @@
 module UI where
 
-import Parachuting
+import Parachute
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Border.Style as BS
 import qualified Brick.Widgets.Center as C
@@ -9,7 +9,7 @@ import qualified Graphics.Vty as V
 import Control.Concurrent (threadDelay, forkIO)
 import Lens.Micro ((^.), mapped)
 import Linear.V2 (V2(..))
-import Parachuting (Game(Game))
+import Parachute (Game(Game))
 import Control.Monad ( forever )
 import Brick.Util ( fg, on )
 import Data.IORef ( IORef, modifyIORef, newIORef, readIORef )
@@ -62,7 +62,7 @@ drawGameOver _    = emptyWidget
 
 drawGrid :: Game -> Widget Name
 drawGrid g = withBorderStyle BS.unicodeBold
-  $ B.borderWithLabel (str " Parachuting ")
+  $ B.borderWithLabel (str " Parachute ")
   $ vBox rows
   where
     rows = [hBox $ cellsInRow r | r <- [gridHeight - 1,gridHeight - 2..0]]
