@@ -28,6 +28,7 @@ dependencies:
 - containers
 - microlens
 - lens
+- QuickCheck
 
 library:
   source-dirs: src

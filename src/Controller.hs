@@ -5,6 +5,7 @@ import qualified Graphics.Vty as V
 import Control.Lens ((^.), (&), (.~), (%~))
 import Prelude hiding (Right, Left)
 import Linear (V2(V2))
+import Test.QuickCheck
 
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
 handleEvent g (AppEvent Tick)                        = continue $ step g
