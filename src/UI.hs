@@ -62,7 +62,7 @@ drawGameOver _    = emptyWidget
 
 drawGrid :: Game -> Widget Name
 drawGrid g = withBorderStyle BS.unicodeBold
-  $ B.borderWithLabel (str " Parachute ")
+  $ B.borderWithLabel (str " Diving ")
   $ vBox rows
   where
     rows = [hBox $ cellsInRow r | r <- [gridHeight - 1,gridHeight - 2..0]]

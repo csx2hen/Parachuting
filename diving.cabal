@@ -4,11 +4,11 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 
-name:           parachute
+name:           diving
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/parachute#readme>
-homepage:       https://github.com/githubuser/parachute#readme
-bug-reports:    https://github.com/githubuser/parachute/issues
+description:    Please see the README on GitHub at <https://github.com/githubuser/diving#readme>
+homepage:       https://github.com/githubuser/diving#readme
+bug-reports:    https://github.com/githubuser/diving/issues
 author:         Author name here
 maintainer:     example@example.com
 copyright:      2021 Author name here
@@ -21,7 +21,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/parachute
+  location: https://github.com/githubuser/diving
 
 library
   exposed-modules:
@@ -30,7 +30,7 @@ library
       Lib
       UI
   other-modules:
-      Paths_parachute
+      Paths_diving
   hs-source-dirs:
       src
   build-depends:
@@ -44,10 +44,10 @@ library
     , vty
   default-language: Haskell2010
 
-executable parachute-exe
+executable diving-exe
   main-is: Main.hs
   other-modules:
-      Paths_parachute
+      Paths_diving
   hs-source-dirs:
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
@@ -55,19 +55,19 @@ executable parachute-exe
       base >=4.7 && <5
     , brick
     , containers
+    , diving
     , lens
     , linear
     , microlens
-    , parachute
     , random
     , vty
   default-language: Haskell2010
 
-test-suite parachute-test
+test-suite diving-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Paths_parachute
+      Paths_diving
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
@@ -75,10 +75,10 @@ test-suite parachute-test
       base >=4.7 && <5
     , brick
     , containers
+    , diving
     , lens
     , linear
     , microlens
-    , parachute
     , random
     , vty
   default-language: Haskell2010

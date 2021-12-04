@@ -1,3 +1,3 @@
-# Changelog for parachute
+# Changelog for diving
 
 ## Unreleased changes
