@@ -1,6 +1,4 @@
 # Diving
-
-## Introduction
 This is a game that a diving enthusiast need to avoid obstacles in the water and try to dive deeper. In this game, you will play the role of diver and use the keyboard to control movement of the character. At the beginning of the game, the player begins diving and has full field of vision. There are some floating or swiming obstacles which the player requires to keep away from during the game. As the player dives deeper, the field of vision will become smaller, which is more dangerous. The game will fail if the player crashes into them. The player's maximum depth will be recorded.
 
 ## Goals
