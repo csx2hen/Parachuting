@@ -1,6 +1,6 @@
 module UI where
 
-import Parachute
+import Core
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Border.Style as BS
 import qualified Brick.Widgets.Center as C
@@ -9,12 +9,12 @@ import qualified Graphics.Vty as V
 import Control.Concurrent (threadDelay, forkIO)
 import Lens.Micro ((^.), mapped)
 import Linear.V2 (V2(..))
-import Parachute (Game(Game))
+import Core (Game(Game))
 import Control.Monad ( forever )
 import Brick.Util ( fg, on )
 import Data.IORef ( IORef, modifyIORef, newIORef, readIORef )
 import GHC.IO (unsafePerformIO)
-import Controls(handleEvent, handleEventStep)
+import Controller(handleEvent, handleEventStep)
 
 import Brick
   ( App(..), BrickEvent(..), Padding(..), EventM, Next, Widget, AttrName, AttrMap,

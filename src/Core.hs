@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Parachute where
+module Core where
 
 import Data.Monoid
 

@@ -25,9 +25,9 @@ source-repository head
 
 library
   exposed-modules:
-      Controls
+      Controller
+      Core
       Lib
-      Parachute
       UI
   other-modules:
       Paths_parachute

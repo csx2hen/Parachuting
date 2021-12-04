@@ -1,7 +1,7 @@
 module Main where
 
 import UI(gameInit)
-import Parachute
+import Core
 
 
 main :: IO ()
