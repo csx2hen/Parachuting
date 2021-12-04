@@ -43,14 +43,14 @@ drawStats g = hLimit 30 (vBox [drawScore (g^.score), padTop (Pad 2) (drawBestSco
                          padTop (Pad 2) (drawGameOver (g^.alive))])
 
 drawScore :: Score -> Widget Name
-drawScore n = withBorderStyle BS.unicodeBold
+drawScore n = withBorderStyle BS.unicodeRounded
   $ B.borderWithLabel (str " current score ")
   $ C.hCenter
   $ padAll 1
   $ str (show n)
 
 drawBestScore :: Score -> Widget Name
-drawBestScore n = withBorderStyle BS.unicodeBold
+drawBestScore n = withBorderStyle BS.unicodeRounded
   $ B.borderWithLabel (str " best score ")
   $ C.hCenter
   $ padAll 1
@@ -61,7 +61,7 @@ drawGameOver True = withAttr gameOverAttr $ C.hCenter $ str "game over"
 drawGameOver _    = emptyWidget
 
 drawGrid :: Game -> Widget Name
-drawGrid g = withBorderStyle BS.unicodeBold
+drawGrid g = withBorderStyle BS.unicodeRounded 
   $ B.borderWithLabel (str " Diving ")
   $ vBox rows
   where

@@ -150,7 +150,7 @@ moveSingleStep :: Direction -> Game -> Game
 moveSingleStep dir g = 
   case dir of
     Left -> if shouldLeft g then movePlayerHorizontally Left g else g
-    Right -> if shouldLeft g then movePlayerHorizontally Right g else g
+    Right -> if shouldRight g then movePlayerHorizontally Right g else g
     Up -> if shouldUp g then movePlayerVertically Up g else g
     Down -> if shouldDown g then movePlayerVertically Down g else g
     Still -> g
