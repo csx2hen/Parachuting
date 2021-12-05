@@ -1,6 +1,20 @@
 module UI where
 
 import Core
+    ( Game,
+      Tick(..),
+      Depth,
+      Name,
+      alive,
+      depth,
+      maxDepth,
+      obstacles,
+      player,
+      gridWidth,
+      gridHeight,
+      initState,
+      inBarriers, inBarriersMine, inBarriersLeftShark, inBarriersRightShark
+    )
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Border.Style as BS
 import qualified Brick.Widgets.Center as C
@@ -9,12 +23,11 @@ import qualified Graphics.Vty as V
 import Control.Concurrent (threadDelay, forkIO)
 import Lens.Micro ((^.), mapped)
 import Linear.V2 (V2(..))
-import Core (Game(Game))
 import Control.Monad ( forever )
 import Brick.Util ( fg, on )
 import Data.IORef ( IORef, modifyIORef, newIORef, readIORef )
 import GHC.IO (unsafePerformIO)
-import Controller(handleEvent, handleEventStep)
+import Controller(handleEvent)
 
 import Brick
   ( App(..), BrickEvent(..), Padding(..), EventM, Next, Widget, AttrName, AttrMap,
@@ -23,13 +36,13 @@ import Brick
   )
 
 
-data Cell = Player | Obstacle | Empty
+data Cell = Player | Jellyfish | Mine | LeftShark | RightShark | Empty
 
 -- App definition
 app :: App Game Tick Name
 app = App { appDraw = drawUI
           , appChooseCursor = neverShowCursor
-          , appHandleEvent = handleEventStep
+          , appHandleEvent = handleEvent
           , appStartEvent = return
           , appAttrMap = const theMap
           }
@@ -39,25 +52,25 @@ drawUI :: Game -> [Widget Name]
 drawUI g = [C.center (padRight (Pad 2) (drawGrid g <+> drawStats g))]
 
 drawStats :: Game -> Widget Name
-drawStats g = hLimit 30 (vBox [drawScore (g^.score), padTop (Pad 2) (drawBestScore (g^.highScore)),
+drawStats g = hLimit 30 (vBox [drawDepth (g^.depth), padTop (Pad 2) (drawBestDepth (g^.maxDepth)),
                          padTop (Pad 2) (drawGameOver (g^.alive))])
 
-drawScore :: Score -> Widget Name
-drawScore n = withBorderStyle BS.unicodeRounded
-  $ B.borderWithLabel (str " current score ")
+drawDepth :: Depth -> Widget Name
+drawDepth n = withBorderStyle BS.unicodeRounded
+  $ B.borderWithLabel (str " Current Depth ")
   $ C.hCenter
   $ padAll 1
   $ str (show n)
 
-drawBestScore :: Score -> Widget Name
-drawBestScore n = withBorderStyle BS.unicodeRounded
-  $ B.borderWithLabel (str " best score ")
+drawBestDepth :: Depth -> Widget Name
+drawBestDepth n = withBorderStyle BS.unicodeRounded
+  $ B.borderWithLabel (str " Max Depth ")
   $ C.hCenter
   $ padAll 1
   $ str (show n)
 
 drawGameOver :: Bool -> Widget Name
-drawGameOver True = withAttr gameOverAttr $ C.hCenter $ str "game over"
+drawGameOver False = withAttr gameOverAttr $ C.hCenter $ str "Game Over"
 drawGameOver _    = emptyWidget
 
 drawGrid :: Game -> Widget Name
@@ -69,13 +82,12 @@ drawGrid g = withBorderStyle BS.unicodeRounded
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..gridWidth - 1]]
     drawCoord = drawCell . cellAt
     cellAt c
-      | c `elem`(g^.player)        = Player
-      | inBarriers c (g^.obstacles) = Obstacle
-      | otherwise                  = Empty
-
-counter :: IORef Int
-{-# NOINLINE counter #-}
-counter = unsafePerformIO (newIORef 0)
+      | c `elem`(g^.player)             = Player
+      | inBarriers c (g^.obstacles)     = Jellyfish
+      | inBarriersMine c (g^.obstacles) = Mine
+      | inBarriersLeftShark c (g^.obstacles) = LeftShark
+      | inBarriersRightShark c (g^.obstacles) = RightShark
+      | otherwise                       = Empty
 
 -- customMain initialVty buildVty mUserChan app initialAppState 
 gameInit :: IO Game
@@ -83,11 +95,8 @@ gameInit =
   do
     channel <- BChan.newBChan 10
     forkIO $ forever $ do
-      modifyIORef counter (+1)
-      c' <- readIORef counter
       BChan.writeBChan channel Tick
-      threadDelay (max (65000 - c' * 10) 250000)
-    -- threadDelay 35000
+      threadDelay 400000
     state <- initState 0
     let builder = V.mkVty V.defaultConfig
     initialVty <- builder
@@ -95,31 +104,46 @@ gameInit =
 
 gameOverAttr :: AttrName
 gameOverAttr = attrName "gameOver"
-
 playerAttr :: AttrName
 playerAttr = attrName "playerAttr"
-
-obstacleAttr :: AttrName
-obstacleAttr = attrName "obstacleAttr"
-
+jellyfishAttr :: AttrName
+jellyfishAttr = attrName "jellyfishAttr"
+leftSharkAttr :: AttrName
+leftSharkAttr = attrName "leftSharkAttr"
+rightSharkAttr :: AttrName 
+rightSharkAttr = attrName "rightSharkAttr"
+mineAttr :: AttrName
+mineAttr = attrName "mineAttr"
 emptyAttr :: AttrName
 emptyAttr = attrName "emptyAttr"
 
 
 drawCell :: Cell -> Widget Name
-drawCell Player    = withAttr playerAttr cw
-drawCell Obstacle = withAttr obstacleAttr cw
-drawCell Empty   = withAttr emptyAttr cw
+drawCell Player    = withAttr playerAttr space
+drawCell Empty   = withAttr emptyAttr space
+drawCell Jellyfish = withAttr jellyfishAttr upArrow
+drawCell Mine = withAttr mineAttr star
+drawCell LeftShark = withAttr leftSharkAttr leftArrow
+drawCell RightShark = withAttr rightSharkAttr rightArrow
 
-cw :: Widget Name
-cw = str "  "
 
-
-
+space :: Widget Name
+space = str " "
+star :: Widget Name
+star = str "*"
+upArrow :: Widget Name
+upArrow = str "^"
+leftArrow :: Widget Name
+leftArrow = str "<"
+rightArrow :: Widget Name
+rightArrow = str ">"
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr
  [ (playerAttr, V.white `on` V.white)
- , (obstacleAttr, V.red `on` V.red)
+ , (jellyfishAttr, fg V.yellow `V.withStyle` V.bold)
+ , (mineAttr, fg V.red `V.withStyle` V.bold)
+ , (leftSharkAttr, fg V.blue `V.withStyle` V.bold)
+ , (rightSharkAttr, fg V.blue `V.withStyle` V.bold)
  , (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
