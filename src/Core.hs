@@ -11,7 +11,8 @@ import Control.Lens (makeLenses, (^.), (.~), (%~), (&), _1, _2)
 import Data.Maybe (fromMaybe)
 import Control.Monad (guard)
 import Prelude hiding (Right, Left)
-import Data.Sequence (ViewR(EmptyR, (:>)), viewr, (|>))
+import Data.Sequence (ViewR(EmptyR, (:>)), viewr, (|>), ViewL (EmptyL, (:<)), viewl)
+import Graphics.Vty.PictureToSpans (isOutOfBounds)
 
 type Name = ()
 type Depth = Int
@@ -74,11 +75,13 @@ modeMaps :: IO ModeMap
 modeMaps = do
   x    <- randomRs (0, gridWidth) <$> newStdGen
   y    <- randomRs (0, last initPlayer^._2 - 2) <$> newStdGen
-  easy <- randomRs (5, 10) <$> newStdGen
+  easyShark <- randomRs (5, 10) <$> newStdGen
+  easyMine <- randomRs (5, 10) <$> newStdGen
+  easyJellyFish <- randomRs (5, 10) <$> newStdGen
   medium <- randomRs (3, 5) <$> newStdGen
   hard <- randomRs (1, 3) <$> newStdGen
   return $ ModeMap
-    (Modes x y easy easy easy easy)
+    (Modes x y easyJellyFish easyMine easyShark easyShark)
     (Modes x y medium medium medium medium)
     (Modes x y hard hard hard hard)
 
@@ -170,11 +173,9 @@ step g = fromMaybe g $ do
   guard $ g^.alive && not (g^.paused)
   return $ fromMaybe (step' g) (checkAlive g)
 
-
---TODO delete obstacles
 -- | What to do if we are not dead.
 step':: Game -> Game
-step' = recordMaxDepth . createObstacles . move . deleteObstacles
+step' = recordMaxDepth . createObstacles . move . deleteObstaclesLeft . deleteObstaclesRight
   {- incDifficulty . setHighScore . incScore . move . spawnBarrier .
           deleteBarrier . adjustStanding . adjustDuckCountdown -}
 
@@ -194,7 +195,9 @@ move = movePlayer . moveObstacles
 
 -- change direction of player(Up, Down)
 changeDir :: Direction -> Game -> Game
-changeDir d g = g & direction .~ d
+changeDir d g = if g^.direction == Down && d == Down
+                then g & movePlayer
+                else g & direction .~ d
 
 -- move player (Up, Down, Still)
 movePlayer :: Game -> Game
@@ -286,7 +289,7 @@ addRandomObstacle Jellyfish g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) 
                                     if g^.depth - g^.lastObstaleDepth.jellyfish >= head (getModes g^.jellyfishFrequency)
                                     then setModes newModes g & obstacles %~ (|> newObs) & (lastObstaleDepth.jellyfish) .~ g^.depth
                                     else g
-addRandomObstacle Mine g =        let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
+addRandomObstacle Mine      g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
                                       newModes = Modes xs ys js ms ls rs
                                       newObs = createObstacle Mine x
                                   in
@@ -322,9 +325,21 @@ getObstacleCoord LeftShark  y = [V2 gridWidth y, V2 (gridWidth - 1) y, V2 (gridW
 getObstacleCoord Jellyfish  x = [V2 x 0, V2 x (-1)]
 
 -- | Delete barrier if it has gone off the left side
-deleteObstacles :: Game -> Game
-deleteObstacles g = g
-  -- case viewl $ g^.obstacles of
-  --   EmptyL  -> g
-  --   a :< as -> let x = getBarrierRightmost a in
-  --                (if x <= 0 then g & obstacles .~ as else g)
+deleteObstaclesLeft :: Game -> Game
+deleteObstaclesLeft g = case viewl $ g^.obstacles of
+                      EmptyL  -> g
+                      a :< as -> if isOutOfBoundary a 
+                                  then deleteObstaclesLeft (g & obstacles .~ as)
+                                  else g
+deleteObstaclesRight :: Game -> Game
+deleteObstaclesRight g = case viewr $ g^.obstacles of
+                      EmptyR  -> g
+                      as :> a -> if isOutOfBoundary a 
+                                  then deleteObstaclesRight (g & obstacles .~ as)
+                                  else g
+
+isOutOfBoundary :: (Obstacle, ObstacleType) -> Bool
+isOutOfBoundary (coords, Mine)       = (coords !! 2)^._2 > gridHeight
+isOutOfBoundary (coords, RightShark) = head coords^._1 > gridWidth
+isOutOfBoundary (coords, LeftShark)  = head coords^._1 < 0
+isOutOfBoundary (coords, Jellyfish)  = last coords^._2 > gridHeight
