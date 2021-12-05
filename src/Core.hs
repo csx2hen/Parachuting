@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 module Core where
 
 import Data.Monoid
@@ -10,33 +11,90 @@ import Control.Lens (makeLenses, (^.), (.~), (%~), (&), _1, _2)
 import Data.Maybe (fromMaybe)
 import Control.Monad (guard)
 import Prelude hiding (Right, Left)
-import Data.Sequence (ViewR(EmptyR, (:>)), viewr)
+import Data.Sequence (ViewR(EmptyR, (:>)), viewr, (|>))
 
 type Name = ()
 type Depth = Int
 type Coordinate = V2 Int
 type Player = [Coordinate] -- list of Coordinates
-type Obstacle = [Coordinate] -- list of Obstacles
+type Obstacle = [Coordinate] -- list of Coordinates
 data ObstacleType = Jellyfish | Mine | LeftShark | RightShark deriving (Eq, Show)
-
 data Tick = Tick
-
 data Direction = Up | Down | Still deriving (Eq, Show)
 data Movement = Left | Right
-
+data Mode = Easy | Medium | Hard deriving (Eq, Show)
+data ModeMap = ModeMap
+  {
+    _easy   :: Modes,
+    _medium :: Modes,
+    _hard   :: Modes
+  }
+  deriving (Eq, Show)
+type Frequency = [Int]
+data Modes = Modes
+  {
+    _x                   :: [Int],
+    _y                   :: [Int],
+    _jellyfishFrequency  :: Frequency,
+    _mineFrequency       :: Frequency,
+    _leftSharkFrequency  :: Frequency,
+    _rightSharkFrequency :: Frequency
+  }
+  deriving (Eq, Show)
+data LastDepth = LastDepth
+  {
+    _jellyfish  :: Depth,
+    _mine       :: Depth,
+    _leftShark  :: Depth,
+    _rightShark :: Depth
+  }
+  deriving (Eq, Show)
 data Game = Game
   {
-    _player    :: Player,
-    _direction :: Direction,
-    _obstacles :: SEQ.Seq (Obstacle, ObstacleType),
-    _depth     :: Depth,
-    _initDepth :: Depth,
-    _maxDepth  :: Depth,
-    _alive     :: Bool,
-    _paused    :: Bool
+    _player           :: Player,
+    _direction        :: Direction,
+    _obstacles        :: SEQ.Seq (Obstacle, ObstacleType),
+    _depth            :: Depth,
+    _initDepth        :: Depth,
+    _maxDepth         :: Depth,
+    _alive            :: Bool,
+    _paused           :: Bool,
+    _modeMap          :: ModeMap,
+    _mode             :: Mode,
+    _lastObstaleDepth :: LastDepth
   } deriving (Show)
 
 makeLenses ''Game
+makeLenses ''ModeMap
+makeLenses ''LastDepth
+makeLenses ''Modes
+
+-- Mode Setting
+modeMaps :: IO ModeMap
+modeMaps = do
+  x    <- randomRs (0, gridWidth) <$> newStdGen
+  y    <- randomRs (0, last initPlayer^._2 - 2) <$> newStdGen
+  easy <- randomRs (5, 10) <$> newStdGen
+  medium <- randomRs (3, 5) <$> newStdGen
+  hard <- randomRs (1, 3) <$> newStdGen
+  return $ ModeMap
+    (Modes x y easy easy easy easy)
+    (Modes x y medium medium medium medium)
+    (Modes x y hard hard hard hard)
+
+-- | Get game's relevant mode.
+getModes :: Game -> Modes
+getModes g = case g^.mode of
+                Easy -> g^.modeMap.easy
+                Medium -> g^.modeMap.medium
+                Hard -> g^.modeMap.hard
+
+setModes :: Modes -> Game -> Game
+setModes m g = case g^.mode of
+                  Easy -> g & modeMap.easy .~ m
+                  Medium -> g & modeMap.medium .~ m
+                  Hard -> g & modeMap.hard .~ m
+
 
 -- Constants
 gridWidth :: Int
@@ -44,6 +102,9 @@ gridWidth = 50
 gridHeight :: Int
 gridHeight = 20
 
+-- InitLastDepth Setting
+lastDepth :: LastDepth
+lastDepth = LastDepth (-5) (-5) (-5) (-5)
 
 initPlayer :: Player
 initPlayer = [V2 (gridWidth `div` 2) (gridHeight - 3), V2 (gridWidth `div` 2) (gridHeight - 4)]
@@ -51,15 +112,20 @@ initPlayer = [V2 (gridWidth `div` 2) (gridHeight - 3), V2 (gridWidth `div` 2) (g
 initState :: Depth -> IO Game
 initState maxDepth =
   do
+    mode <- modeMaps
     return Game {
-                  _player    = initPlayer,
-                  _direction = Still,
-                  _obstacles = SEQ.fromList [([V2 0 1, V2 0 2], Jellyfish), ([V2 2 2, V2 3 2, V2 4 2, V2 3 1, V2 3 3], Mine), ([V2 (gridWidth-2) 4, V2 (gridWidth-1) 4, V2 gridWidth 4], LeftShark), ([V2 0 5, V2 1 5, V2 2 5], RightShark)],
-                  _depth     = 0,
-                  _maxDepth  = maxDepth,
-                  _alive     = True,
-                  _paused    = False,
-                  _initDepth  = 0
+                  _player           = initPlayer,
+                  _direction        = Still,
+                  -- _obstacles        = SEQ.fromList [createObstacle Jellyfish 0, createObstacle Mine 3, createObstacle LeftShark 10, createObstacle RightShark 15],
+                  _obstacles        = SEQ.empty,
+                  _depth            = 0,
+                  _maxDepth         = maxDepth,
+                  _alive            = True,
+                  _paused           = False,
+                  _initDepth        = 0,
+                  _modeMap          = mode,
+                  _mode             = Easy,
+                  _lastObstaleDepth = lastDepth
                 }
 
 
@@ -105,10 +171,10 @@ step g = fromMaybe g $ do
   return $ fromMaybe (step' g) (checkAlive g)
 
 
---TODO delete obstacles and create obstacles
+--TODO delete obstacles
 -- | What to do if we are not dead.
 step':: Game -> Game
-step' = recordMaxDepth . createObstacles . move 
+step' = recordMaxDepth . createObstacles . move . deleteObstacles
   {- incDifficulty . setHighScore . incScore . move . spawnBarrier .
           deleteBarrier . adjustStanding . adjustDuckCountdown -}
 
@@ -154,7 +220,7 @@ shouldRight :: Game -> Bool
 shouldRight g = (minimum [coord^._1 | coord <- g^.player]) < gridWidth - 1
 
 movePlayerSingleStep :: Movement -> Game -> Game
-movePlayerSingleStep Left g  = if shouldLeft g && g^.alive then movePlayerHorizontally Left g else g 
+movePlayerSingleStep Left g  = if shouldLeft g && g^.alive then movePlayerHorizontally Left g else g
 movePlayerSingleStep Right g = if shouldRight g && g^.alive then movePlayerHorizontally Right g else g
 
 -- Obstacle functions
@@ -167,7 +233,7 @@ moveObstacle :: (Obstacle, ObstacleType) -> (Obstacle, ObstacleType)
 moveObstacle (obs, Jellyfish)   = (fmap (+ V2 0 1) obs, Jellyfish)
 moveObstacle (obs, LeftShark)   = (fmap (+ V2 (-1) 0) obs, LeftShark)
 moveObstacle (obs, RightShark)  = (fmap (+ V2 1 0) obs, RightShark)
-moveObstacle other              = other 
+moveObstacle other              = other
 
 -- | Move single obstacle
 moveObstaclesDir :: Direction -> Game -> Game
@@ -210,11 +276,55 @@ crash' player obstacle = player `elem` fst obstacle
 
 -- create three types of obstacles(jellyfish, mine, shark)
 createObstacles :: Game -> Game
-createObstacles g = g
--- createObstacles :: Game -> Game
--- createObstacles g = 
---   case viewr $ g^.obstacles of
---     EmptyR -> addRandomObstacle g
---     _ :> a -> addRandomObstacle g
+createObstacles g = addRandomObstacle RightShark $ addRandomObstacle LeftShark $ addRandomObstacle Mine $ addRandomObstacle Jellyfish g
 
--- addRandomObstacle g = 
+addRandomObstacle :: ObstacleType -> Game -> Game
+addRandomObstacle Jellyfish g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
+                                      newModes = Modes xs ys js ms ls rs
+                                      newObs = createObstacle Jellyfish x
+                                  in
+                                    if g^.depth - g^.lastObstaleDepth.jellyfish >= head (getModes g^.jellyfishFrequency)
+                                    then setModes newModes g & obstacles %~ (|> newObs) & (lastObstaleDepth.jellyfish) .~ g^.depth
+                                    else g
+addRandomObstacle Mine g =        let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
+                                      newModes = Modes xs ys js ms ls rs
+                                      newObs = createObstacle Mine x
+                                  in
+                                    if g^.depth - g^.lastObstaleDepth.mine >= head (getModes g^.mineFrequency)
+                                    then setModes newModes g & obstacles %~ (|> newObs) & (lastObstaleDepth.mine) .~ g^.depth
+                                    else g
+addRandomObstacle LeftShark g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
+                                      newModes = Modes xs ys js ms ls rs
+                                      newObs = createObstacle LeftShark y
+                                  in
+                                    if g^.depth - g^.lastObstaleDepth.leftShark >= head (getModes g^.leftSharkFrequency)
+                                    then setModes newModes g & obstacles %~ (|> newObs) & (lastObstaleDepth.leftShark) .~ g^.depth
+                                    else g
+addRandomObstacle RightShark g =  let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
+                                      newModes = Modes xs ys js ms ls rs
+                                      newObs = createObstacle RightShark y
+                                  in
+                                    if g^.depth - g^.lastObstaleDepth.rightShark >= head (getModes g^.rightSharkFrequency)
+                                    then setModes newModes g & obstacles %~ (|> newObs) & (lastObstaleDepth.rightShark) .~ g^.depth
+                                    else g
+
+
+-- | Make a obstacle. The width and height are determined by
+-- the dimension, and the second parameter determines the
+-- starting ypos.
+createObstacle :: ObstacleType -> Int -> (Obstacle, ObstacleType)
+createObstacle obsType pos = (getObstacleCoord obsType pos, obsType)
+
+getObstacleCoord :: ObstacleType -> Int -> Obstacle
+getObstacleCoord Mine       x = [V2 x 0, V2 x (-1), V2 x (-2), V2 (x - 1) (-1), V2 (x + 1) (-1)]
+getObstacleCoord RightShark y = [V2 0 y, V2 1 y, V2 2 y]
+getObstacleCoord LeftShark  y = [V2 gridWidth y, V2 (gridWidth - 1) y, V2 (gridWidth - 2) y]
+getObstacleCoord Jellyfish  x = [V2 x 0, V2 x (-1)]
+
+-- | Delete barrier if it has gone off the left side
+deleteObstacles :: Game -> Game
+deleteObstacles g = g
+  -- case viewl $ g^.obstacles of
+  --   EmptyL  -> g
+  --   a :< as -> let x = getBarrierRightmost a in
+  --                (if x <= 0 then g & obstacles .~ as else g)
