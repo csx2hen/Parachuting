@@ -27,7 +27,6 @@ library
   exposed-modules:
       Controller
       Core
-      Lib
       UI
   other-modules:
       Paths_diving
