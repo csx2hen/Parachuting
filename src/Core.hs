@@ -24,6 +24,7 @@ data Tick = Tick
 data Direction = Up | Down | Still deriving (Eq, Show)
 data Movement = Left | Right
 data Mode = Easy | Medium | Hard deriving (Eq, Show)
+-- every mode has a Modes(like frequency)
 data ModeMap = ModeMap
   {
     _easy   :: Modes,
@@ -42,6 +43,7 @@ data Modes = Modes
     _rightSharkFrequency :: Frequency
   }
   deriving (Eq, Show)
+-- last depth of every kind of obstacle
 data LastDepth = LastDepth
   {
     _jellyfish  :: Depth,
@@ -71,6 +73,7 @@ makeLenses ''LastDepth
 makeLenses ''Modes
 
 -- Mode Setting
+-- If we want to change the difficulty, we could change the randomRs(x, y). Just Consider them as the cycle time of obstacle generator
 modeMaps :: IO ModeMap
 modeMaps = do
   x    <- randomRs (0, gridWidth) <$> newStdGen
@@ -91,13 +94,12 @@ getModes g = case g^.mode of
                 Easy -> g^.modeMap.easy
                 Medium -> g^.modeMap.medium
                 Hard -> g^.modeMap.hard
-
+-- | Set game's relevant mode.
 setModes :: Modes -> Game -> Game
 setModes m g = case g^.mode of
                   Easy -> g & modeMap.easy .~ m
                   Medium -> g & modeMap.medium .~ m
                   Hard -> g & modeMap.hard .~ m
-
 
 -- Constants
 gridWidth :: Int
@@ -109,9 +111,11 @@ gridHeight = 20
 lastDepth :: LastDepth
 lastDepth = LastDepth (-5) (-5) (-5) (-5)
 
+-- InitPlayer Setting
 initPlayer :: Player
 initPlayer = [V2 (gridWidth `div` 2) (gridHeight - 3), V2 (gridWidth `div` 2) (gridHeight - 4)]
 
+-- Init State 
 initState :: Depth -> IO Game
 initState maxDepth =
   do
@@ -119,7 +123,6 @@ initState maxDepth =
     return Game {
                   _player           = initPlayer,
                   _direction        = Still,
-                  -- _obstacles        = SEQ.fromList [createObstacle Jellyfish 0, createObstacle Mine 3, createObstacle LeftShark 10, createObstacle RightShark 15],
                   _obstacles        = SEQ.empty,
                   _depth            = 0,
                   _maxDepth         = maxDepth,
@@ -132,41 +135,43 @@ initState maxDepth =
                 }
 
 
--- | Checks to see if the passed-in coordinate is in any
--- of the barriers
-inBarriers :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
-inBarriers c bs = getAny $ foldMap (Any . inBarrier c) bs
+-- | Checks to see if the passed-in coordinate is in any JellyFish
+inBarriersJellyFish :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
+inBarriersJellyFish c bs = getAny $ foldMap (Any . inBarriersJellyFish' c) bs
 
--- | Checks to see if the passed-in coordinate is in the
--- passed-in barriers
-inBarrier :: Coordinate -> (Obstacle, ObstacleType) -> Bool
-inBarrier c (b, Jellyfish) = c `elem` b
-inBarrier _ _ = False
+-- | Checks to see if the passed-in coordinate is in a specific JellyFish
+inBarriersJellyFish' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
+inBarriersJellyFish' c (b, Jellyfish) = c `elem` b
+inBarriersJellyFish' _ _ = False
 
+-- | Checks to see if the passed-in coordinate is in any Mine
 inBarriersMine :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
 inBarriersMine c bs = getAny $ foldMap (Any . inBarrierMine' c) bs
 
-inBarriersLeftShark :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
-inBarriersLeftShark c bs = getAny $ foldMap (Any . inBarriersLeftShark' c) bs
-
-inBarriersRightShark :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
-inBarriersRightShark c bs = getAny $ foldMap (Any . inBarriersRightShark' c) bs
-
--- | Checks to see if the passed-in coordinate is in the
--- passed-in barriers
+-- | Checks to see if the passed-in coordinate is in a specific Mine
 inBarrierMine' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
 inBarrierMine' c (b, Mine) = c `elem` b
 inBarrierMine' _ _ = False
 
+-- | Checks to see if the passed-in coordinate is in any LeftShark
+inBarriersLeftShark :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
+inBarriersLeftShark c bs = getAny $ foldMap (Any . inBarriersLeftShark' c) bs
+
+-- | Checks to see if the passed-in coordinate is in a specific LeftShark
 inBarriersLeftShark' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
 inBarriersLeftShark' c (b, LeftShark) = c `elem` b
 inBarriersLeftShark' _ _ = False
 
+-- | Checks to see if the passed-in coordinate is in any RightShark
+inBarriersRightShark :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
+inBarriersRightShark c bs = getAny $ foldMap (Any . inBarriersRightShark' c) bs
+
+-- | Checks to see if the passed-in coordinate is in a specific RightShark
 inBarriersRightShark' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
 inBarriersRightShark' c (b, RightShark) = c `elem` b
 inBarriersRightShark' _ _ = False
 
--- Functions
+-- Step Functions
 -- | Step forward in time.
 step :: Game -> Game
 step g = fromMaybe g $ do
@@ -176,20 +181,9 @@ step g = fromMaybe g $ do
 -- | What to do if we are not dead.
 step':: Game -> Game
 step' = recordMaxDepth . createObstacles . move . deleteObstaclesLeft . deleteObstaclesRight
-  {- incDifficulty . setHighScore . incScore . move . spawnBarrier .
-          deleteBarrier . adjustStanding . adjustDuckCountdown -}
-
-
--- | Possibly die if next position is disallowed.
--- die :: Game -> Maybe Game
--- die g = do
---   guard $ die' g
---   return $ g & dead .~ True
-
 
 -- Moving functions
 -- | Move everything on the screen
--- if we want to use Single step mode, we need to delete movePlayer
 move :: Game -> Game
 move = movePlayer . moveObstacles
 
@@ -199,12 +193,17 @@ changeDir d g = if g^.direction == Down && d == Down
                 then g & movePlayer
                 else g & direction .~ d
 
--- move player (Up, Down, Still)
+-- move player (Up, Down, Still). Consider up down and still as continuous state
 movePlayer :: Game -> Game
 movePlayer g = case g^.direction of
                 Still -> g
                 Up -> if shouldUp g then decDepth (moveObstaclesDir Down g) else changeDir Still g
                 Down -> incDepth (moveObstaclesDir Up g)
+
+-- Moves player handler (Left, Right). Consider left right as a movement
+movePlayerSingleStep :: Movement -> Game -> Game
+movePlayerSingleStep Left g  = if shouldLeft g && g^.alive then movePlayerHorizontally Left g else g
+movePlayerSingleStep Right g = if shouldRight g && g^.alive then movePlayerHorizontally Right g else g
 
 -- | Moves player (Left, Right)
 movePlayerHorizontally :: Movement -> Game -> Game
@@ -213,18 +212,17 @@ movePlayerHorizontally dir g =
     Left  -> if shouldLeft g then g & player %~ fmap (+ V2 (-1) 0) else g
     Right -> if shouldRight g then g & player %~ fmap (+ V2 1 0) else g
 
+-- check if the palyer should go up
 shouldUp :: Game -> Bool
 shouldUp g = g^.depth > 0
 
+-- check if the palyer should go left
 shouldLeft :: Game -> Bool
 shouldLeft g = (minimum [coord^._1 | coord <- g^.player]) > 0
 
+-- check if the palyer should go right
 shouldRight :: Game -> Bool
 shouldRight g = (minimum [coord^._1 | coord <- g^.player]) < gridWidth - 1
-
-movePlayerSingleStep :: Movement -> Game -> Game
-movePlayerSingleStep Left g  = if shouldLeft g && g^.alive then movePlayerHorizontally Left g else g
-movePlayerSingleStep Right g = if shouldRight g && g^.alive then movePlayerHorizontally Right g else g
 
 -- Obstacle functions
 -- | Move all the obstacles
@@ -238,7 +236,7 @@ moveObstacle (obs, LeftShark)   = (fmap (+ V2 (-1) 0) obs, LeftShark)
 moveObstacle (obs, RightShark)  = (fmap (+ V2 1 0) obs, RightShark)
 moveObstacle other              = other
 
--- | Move single obstacle
+-- | Move single obstacle towards the direction given
 moveObstaclesDir :: Direction -> Game -> Game
 moveObstaclesDir Up    g = g & obstacles %~ fmap moveObstacleUp
 moveObstaclesDir Down  g = g & obstacles %~ fmap moveObstacleDown
@@ -252,28 +250,35 @@ moveObstacleUp (obs, ty) = (fmap (+ V2 0 1) obs, ty)
 moveObstacleDown :: (Obstacle, ObstacleType) -> (Obstacle, ObstacleType)
 moveObstacleDown (obs, ty) = (fmap (+ V2 0 (-1)) obs, ty)
 
+-- increase depth
 incDepth :: Game -> Game
 incDepth g = g & depth %~ (+1)
 
+-- decrease depth
 decDepth :: Game -> Game
 decDepth g = g & depth %~ (+(-1))
 
+-- record max depth
 recordMaxDepth :: Game -> Game
 recordMaxDepth g = if g^.depth > g^.maxDepth then g & maxDepth .~ (g^.depth) else g
 
+-- check to see if alive
 checkAlive :: Game -> Maybe Game
 checkAlive g = do
   guard $ isDead g
   return $ g & alive .~ False
 
+-- check to see if dead
 isDead :: Game -> Bool
 isDead g = let player' = g^.player
                obstacles' = g^.obstacles
               in getAny $ foldMap (Any . flip crash obstacles') player'
 
+-- check to see if crashed in any obstacle
 crash :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
 crash player obstacles = getAny $ foldMap (Any . crash' player) obstacles
 
+-- check to see if crashed in a specific obstacle
 crash' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
 crash' player obstacle = player `elem` fst obstacle
 
@@ -281,6 +286,7 @@ crash' player obstacle = player `elem` fst obstacle
 createObstacles :: Game -> Game
 createObstacles g = addRandomObstacle RightShark $ addRandomObstacle LeftShark $ addRandomObstacle Mine $ addRandomObstacle Jellyfish g
 
+-- create obstacle of given type 
 addRandomObstacle :: ObstacleType -> Game -> Game
 addRandomObstacle Jellyfish g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
                                       newModes = Modes xs ys js ms ls rs
@@ -318,6 +324,7 @@ addRandomObstacle RightShark g =  let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) 
 createObstacle :: ObstacleType -> Int -> (Obstacle, ObstacleType)
 createObstacle obsType pos = (getObstacleCoord obsType pos, obsType)
 
+-- get coords of given obstacle
 getObstacleCoord :: ObstacleType -> Int -> Obstacle
 getObstacleCoord Mine       x = [V2 x 0, V2 x (-1), V2 x (-2), V2 (x - 1) (-1), V2 (x + 1) (-1)]
 getObstacleCoord RightShark y = [V2 0 y, V2 1 y, V2 2 y]
@@ -337,7 +344,7 @@ deleteObstaclesRight g = case viewr $ g^.obstacles of
                       as :> a -> if isOutOfBoundary a 
                                   then deleteObstaclesRight (g & obstacles .~ as)
                                   else g
-
+-- | check the obastacle is out of boundray
 isOutOfBoundary :: (Obstacle, ObstacleType) -> Bool
 isOutOfBoundary (coords, Mine)       = (coords !! 2)^._2 > gridHeight
 isOutOfBoundary (coords, RightShark) = head coords^._1 > gridWidth

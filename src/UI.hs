@@ -13,7 +13,7 @@ import Core
       gridWidth,
       gridHeight,
       initState,
-      inBarriers, inBarriersMine, inBarriersLeftShark, inBarriersRightShark
+      inBarriersJellyFish, inBarriersMine, inBarriersLeftShark, inBarriersRightShark
     )
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Border.Style as BS
@@ -82,12 +82,12 @@ drawGrid g = withBorderStyle BS.unicodeRounded
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..gridWidth - 1]]
     drawCoord = drawCell . cellAt
     cellAt c
-      | c `elem`(g^.player)             = Player
-      | inBarriers c (g^.obstacles)     = Jellyfish
-      | inBarriersMine c (g^.obstacles) = Mine
-      | inBarriersLeftShark c (g^.obstacles) = LeftShark
-      | inBarriersRightShark c (g^.obstacles) = RightShark
-      | otherwise                       = Empty
+      | c `elem`(g^.player)                      = Player
+      | inBarriersJellyFish c (g^.obstacles)     = Jellyfish
+      | inBarriersMine c (g^.obstacles)          = Mine
+      | inBarriersLeftShark c (g^.obstacles)     = LeftShark
+      | inBarriersRightShark c (g^.obstacles)    = RightShark
+      | otherwise                                = Empty
 
 -- customMain initialVty buildVty mUserChan app initialAppState 
 gameInit :: IO Game
