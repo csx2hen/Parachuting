@@ -12,8 +12,7 @@ import Core
       player,
       gridWidth,
       gridHeight,
-      initState,
-      inBarriersJellyFish, inBarriersMine, inBarriersLeftShark, inBarriersRightShark
+      initState, inJellyFish, inMine, inLeftShark, inRightShark, Mode, mode
     )
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Border.Style as BS
@@ -52,8 +51,15 @@ drawUI :: Game -> [Widget Name]
 drawUI g = [C.center (padRight (Pad 2) (drawGrid g <+> drawStats g))]
 
 drawStats :: Game -> Widget Name
-drawStats g = hLimit 30 (vBox [drawDepth (g^.depth), padTop (Pad 2) (drawBestDepth (g^.maxDepth)),
+drawStats g = hLimit 30 (vBox [drwaMode (g^.mode), padTop (Pad 2) (drawDepth (g^.depth)), padTop (Pad 2) (drawBestDepth (g^.maxDepth)),
                          padTop (Pad 2) (drawGameOver (g^.alive))])
+
+drwaMode :: Mode -> Widget n
+drwaMode m = withBorderStyle BS.unicodeRounded
+  $ B.borderWithLabel (str " Current Mode ")
+  $ C.hCenter
+  $ padAll 1
+  $ str (show m)
 
 drawDepth :: Depth -> Widget Name
 drawDepth n = withBorderStyle BS.unicodeRounded
@@ -83,10 +89,10 @@ drawGrid g = withBorderStyle BS.unicodeRounded
     drawCoord = drawCell . cellAt
     cellAt c
       | c `elem`(g^.player)                      = Player
-      | inBarriersJellyFish c (g^.obstacles)     = Jellyfish
-      | inBarriersMine c (g^.obstacles)          = Mine
-      | inBarriersLeftShark c (g^.obstacles)     = LeftShark
-      | inBarriersRightShark c (g^.obstacles)    = RightShark
+      | inJellyFish c (g^.obstacles)     = Jellyfish
+      | inMine c (g^.obstacles)          = Mine
+      | inLeftShark c (g^.obstacles)     = LeftShark
+      | inRightShark c (g^.obstacles)    = RightShark
       | otherwise                                = Empty
 
 -- customMain initialVty buildVty mUserChan app initialAppState 
@@ -117,7 +123,7 @@ mineAttr = attrName "mineAttr"
 emptyAttr :: AttrName
 emptyAttr = attrName "emptyAttr"
 
-
+-- draw the grid
 drawCell :: Cell -> Widget Name
 drawCell Player    = withAttr playerAttr space
 drawCell Empty   = withAttr emptyAttr space
@@ -126,7 +132,7 @@ drawCell Mine = withAttr mineAttr star
 drawCell LeftShark = withAttr leftSharkAttr leftArrow
 drawCell RightShark = withAttr rightSharkAttr rightArrow
 
-
+-- shapes
 space :: Widget Name
 space = str " "
 star :: Widget Name
@@ -138,6 +144,7 @@ leftArrow = str "<"
 rightArrow :: Widget Name
 rightArrow = str ">"
 
+-- color
 theMap :: AttrMap
 theMap = attrMap V.defAttr
  [ (playerAttr, V.white `on` V.white)

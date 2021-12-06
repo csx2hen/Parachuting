@@ -13,6 +13,8 @@ import Control.Monad (guard)
 import Prelude hiding (Right, Left)
 import Data.Sequence (ViewR(EmptyR, (:>)), viewr, (|>), ViewL (EmptyL, (:<)), viewl)
 import Graphics.Vty.PictureToSpans (isOutOfBounds)
+import Data.List (findIndex)
+import GHC.IO.Handle.Types (Handle__(haDecoder))
 
 type Name = ()
 type Depth = Int
@@ -77,12 +79,12 @@ makeLenses ''Modes
 modeMaps :: IO ModeMap
 modeMaps = do
   x    <- randomRs (0, gridWidth) <$> newStdGen
-  y    <- randomRs (0, last initPlayer^._2 - 2) <$> newStdGen
-  easyShark <- randomRs (5, 10) <$> newStdGen
+  y    <- randomRs (0, last initPlayer^._2) <$> newStdGen
+  easyShark <- randomRs (0, 10) <$> newStdGen
   easyMine <- randomRs (5, 10) <$> newStdGen
   easyJellyFish <- randomRs (5, 10) <$> newStdGen
   medium <- randomRs (3, 5) <$> newStdGen
-  hard <- randomRs (1, 3) <$> newStdGen
+  hard <- randomRs (0, 3) <$> newStdGen
   return $ ModeMap
     (Modes x y easyJellyFish easyMine easyShark easyShark)
     (Modes x y medium medium medium medium)
@@ -94,6 +96,7 @@ getModes g = case g^.mode of
                 Easy -> g^.modeMap.easy
                 Medium -> g^.modeMap.medium
                 Hard -> g^.modeMap.hard
+
 -- | Set game's relevant mode.
 setModes :: Modes -> Game -> Game
 setModes m g = case g^.mode of
@@ -101,7 +104,24 @@ setModes m g = case g^.mode of
                   Medium -> g & modeMap.medium .~ m
                   Hard -> g & modeMap.hard .~ m
 
--- Constants
+-- change mode when we dive to the depth
+modesOfDepth :: [Int]
+modesOfDepth = [50, 10, 5]
+
+-- modes we have now
+modesType :: [Mode]
+modesType = [Hard, Medium, Easy]
+
+-- find which mode we shold use at current depth
+findModes :: Depth -> Maybe Int
+findModes d = findIndex (d >=) modesOfDepth
+
+-- | change game's relevant mode.
+changeModes :: Game -> Game
+changeModes g = case findModes (g^.depth) of 
+                  Just x -> g & mode .~ (modesType !! x)
+                  Nothing -> g
+
 gridWidth :: Int
 gridWidth = 50
 gridHeight :: Int
@@ -136,40 +156,40 @@ initState maxDepth =
 
 
 -- | Checks to see if the passed-in coordinate is in any JellyFish
-inBarriersJellyFish :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
-inBarriersJellyFish c bs = getAny $ foldMap (Any . inBarriersJellyFish' c) bs
+inJellyFish :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
+inJellyFish c bs = getAny $ foldMap (Any . inJellyFish' c) bs
 
 -- | Checks to see if the passed-in coordinate is in a specific JellyFish
-inBarriersJellyFish' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
-inBarriersJellyFish' c (b, Jellyfish) = c `elem` b
-inBarriersJellyFish' _ _ = False
+inJellyFish' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
+inJellyFish' c (b, Jellyfish) = c `elem` b
+inJellyFish' _ _ = False
 
 -- | Checks to see if the passed-in coordinate is in any Mine
-inBarriersMine :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
-inBarriersMine c bs = getAny $ foldMap (Any . inBarrierMine' c) bs
+inMine :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
+inMine c bs = getAny $ foldMap (Any . inMine' c) bs
 
 -- | Checks to see if the passed-in coordinate is in a specific Mine
-inBarrierMine' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
-inBarrierMine' c (b, Mine) = c `elem` b
-inBarrierMine' _ _ = False
+inMine' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
+inMine' c (b, Mine) = c `elem` b
+inMine' _ _ = False
 
 -- | Checks to see if the passed-in coordinate is in any LeftShark
-inBarriersLeftShark :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
-inBarriersLeftShark c bs = getAny $ foldMap (Any . inBarriersLeftShark' c) bs
+inLeftShark :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
+inLeftShark c bs = getAny $ foldMap (Any . inLeftShark' c) bs
 
 -- | Checks to see if the passed-in coordinate is in a specific LeftShark
-inBarriersLeftShark' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
-inBarriersLeftShark' c (b, LeftShark) = c `elem` b
-inBarriersLeftShark' _ _ = False
+inLeftShark' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
+inLeftShark' c (b, LeftShark) = c `elem` b
+inLeftShark' _ _ = False
 
 -- | Checks to see if the passed-in coordinate is in any RightShark
-inBarriersRightShark :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
-inBarriersRightShark c bs = getAny $ foldMap (Any . inBarriersRightShark' c) bs
+inRightShark :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
+inRightShark c bs = getAny $ foldMap (Any . inRightShark' c) bs
 
 -- | Checks to see if the passed-in coordinate is in a specific RightShark
-inBarriersRightShark' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
-inBarriersRightShark' c (b, RightShark) = c `elem` b
-inBarriersRightShark' _ _ = False
+inRightShark' :: Coordinate -> (Obstacle, ObstacleType) -> Bool
+inRightShark' c (b, RightShark) = c `elem` b
+inRightShark' _ _ = False
 
 -- Step Functions
 -- | Step forward in time.
@@ -180,7 +200,7 @@ step g = fromMaybe g $ do
 
 -- | What to do if we are not dead.
 step':: Game -> Game
-step' = recordMaxDepth . createObstacles . move . deleteObstaclesLeft . deleteObstaclesRight
+step' = changeModes . recordMaxDepth . createObstacles . move . deleteObstaclesLeft . deleteObstaclesRight
 
 -- Moving functions
 -- | Move everything on the screen
@@ -291,31 +311,31 @@ addRandomObstacle :: ObstacleType -> Game -> Game
 addRandomObstacle Jellyfish g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
                                       newModes = Modes xs ys js ms ls rs
                                       newObs = createObstacle Jellyfish x
-                                  in
-                                    if g^.depth - g^.lastObstaleDepth.jellyfish >= head (getModes g^.jellyfishFrequency)
-                                    then setModes newModes g & obstacles %~ (|> newObs) & (lastObstaleDepth.jellyfish) .~ g^.depth
-                                    else g
+                                    in
+                                      if g^.depth - g^.lastObstaleDepth.jellyfish >= j
+                                      then setModes newModes g & obstacles %~ (|> newObs) & ((lastObstaleDepth.jellyfish) .~ g^.depth)
+                                      else g
 addRandomObstacle Mine      g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
                                       newModes = Modes xs ys js ms ls rs
                                       newObs = createObstacle Mine x
-                                  in
-                                    if g^.depth - g^.lastObstaleDepth.mine >= head (getModes g^.mineFrequency)
-                                    then setModes newModes g & obstacles %~ (|> newObs) & (lastObstaleDepth.mine) .~ g^.depth
-                                    else g
+                                    in
+                                      if g^.depth - g^.lastObstaleDepth.mine >= m
+                                      then setModes newModes g & obstacles %~ (|> newObs) & ((lastObstaleDepth.mine) .~ g^.depth)
+                                      else g
 addRandomObstacle LeftShark g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
                                       newModes = Modes xs ys js ms ls rs
                                       newObs = createObstacle LeftShark y
-                                  in
-                                    if g^.depth - g^.lastObstaleDepth.leftShark >= head (getModes g^.leftSharkFrequency)
-                                    then setModes newModes g & obstacles %~ (|> newObs) & (lastObstaleDepth.leftShark) .~ g^.depth
-                                    else g
+                                    in
+                                      if g^.depth - g^.lastObstaleDepth.leftShark >= l
+                                      then setModes newModes g & obstacles %~ (|> newObs) & ((lastObstaleDepth.leftShark) .~ g^.depth)
+                                      else g
 addRandomObstacle RightShark g =  let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
                                       newModes = Modes xs ys js ms ls rs
                                       newObs = createObstacle RightShark y
-                                  in
-                                    if g^.depth - g^.lastObstaleDepth.rightShark >= head (getModes g^.rightSharkFrequency)
-                                    then setModes newModes g & obstacles %~ (|> newObs) & (lastObstaleDepth.rightShark) .~ g^.depth
-                                    else g
+                                    in
+                                      if g^.depth - g^.lastObstaleDepth.rightShark >= r
+                                      then setModes newModes g & obstacles %~ (|> newObs) & ((lastObstaleDepth.rightShark) .~ g^.depth)
+                                      else g
 
 
 -- | Make a obstacle. The width and height are determined by
@@ -331,17 +351,18 @@ getObstacleCoord RightShark y = [V2 0 y, V2 1 y, V2 2 y]
 getObstacleCoord LeftShark  y = [V2 gridWidth y, V2 (gridWidth - 1) y, V2 (gridWidth - 2) y]
 getObstacleCoord Jellyfish  x = [V2 x 0, V2 x (-1), V2 (x - 1) 0, V2 (x + 1) 0]
 
--- | Delete barrier if it has gone off the left side
+-- | Delete obstacle
 deleteObstaclesLeft :: Game -> Game
 deleteObstaclesLeft g = case viewl $ g^.obstacles of
                       EmptyL  -> g
-                      a :< as -> if isOutOfBoundary a 
+                      a :< as -> if isOutOfBoundary a
                                   then deleteObstaclesLeft (g & obstacles .~ as)
                                   else g
+-- | Delete obstacle
 deleteObstaclesRight :: Game -> Game
 deleteObstaclesRight g = case viewr $ g^.obstacles of
                       EmptyR  -> g
-                      as :> a -> if isOutOfBoundary a 
+                      as :> a -> if isOutOfBoundary a
                                   then deleteObstaclesRight (g & obstacles .~ as)
                                   else g
 -- | check the obastacle is out of boundray
