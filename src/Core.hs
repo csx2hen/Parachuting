@@ -329,7 +329,7 @@ getObstacleCoord :: ObstacleType -> Int -> Obstacle
 getObstacleCoord Mine       x = [V2 x 0, V2 x (-1), V2 x (-2), V2 (x - 1) (-1), V2 (x + 1) (-1)]
 getObstacleCoord RightShark y = [V2 0 y, V2 1 y, V2 2 y]
 getObstacleCoord LeftShark  y = [V2 gridWidth y, V2 (gridWidth - 1) y, V2 (gridWidth - 2) y]
-getObstacleCoord Jellyfish  x = [V2 x 0, V2 x (-1)]
+getObstacleCoord Jellyfish  x = [V2 x 0, V2 x (-1), V2 (x - 1) 0, V2 (x + 1) 0]
 
 -- | Delete barrier if it has gone off the left side
 deleteObstaclesLeft :: Game -> Game
