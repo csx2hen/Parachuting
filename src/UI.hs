@@ -12,7 +12,7 @@ import Core
       player,
       gridWidth,
       gridHeight,
-      initState, inJellyFish, inMine, inLeftShark, inRightShark, Mode, mode
+      initState, inJellyFish, inMine, inLeftShark, inRightShark, Mode, mode, inDark
     )
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Border.Style as BS
@@ -35,7 +35,7 @@ import Brick
   )
 
 
-data Cell = Player | Jellyfish | Mine | LeftShark | RightShark | Empty
+data Cell = Dark | Player | Jellyfish | Mine | LeftShark | RightShark | Empty
 
 -- App definition
 app :: App Game Tick Name
@@ -88,12 +88,13 @@ drawGrid g = withBorderStyle BS.unicodeRounded
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..gridWidth - 1]]
     drawCoord = drawCell . cellAt
     cellAt c
-      | c `elem`(g^.player)                      = Player
+      | inDark c (g^.player) (g^.depth) = Dark
+      | c `elem`(g^.player)              = Player
       | inJellyFish c (g^.obstacles)     = Jellyfish
       | inMine c (g^.obstacles)          = Mine
       | inLeftShark c (g^.obstacles)     = LeftShark
       | inRightShark c (g^.obstacles)    = RightShark
-      | otherwise                                = Empty
+      | otherwise                        = Empty
 
 -- customMain initialVty buildVty mUserChan app initialAppState 
 gameInit :: IO Game
@@ -110,6 +111,8 @@ gameInit =
 
 gameOverAttr :: AttrName
 gameOverAttr = attrName "gameOver"
+darkAttr :: AttrName 
+darkAttr = attrName "darkAttr"
 playerAttr :: AttrName
 playerAttr = attrName "playerAttr"
 jellyfishAttr :: AttrName
@@ -125,6 +128,7 @@ emptyAttr = attrName "emptyAttr"
 
 -- draw the grid
 drawCell :: Cell -> Widget Name
+drawCell Dark = withAttr darkAttr dark
 drawCell Player    = withAttr playerAttr space
 drawCell Empty   = withAttr emptyAttr space
 drawCell Jellyfish = withAttr jellyfishAttr upArrow
@@ -133,6 +137,8 @@ drawCell LeftShark = withAttr leftSharkAttr leftArrow
 drawCell RightShark = withAttr rightSharkAttr rightArrow
 
 -- shapes
+dark :: Widget Name 
+dark = str "~"
 space :: Widget Name
 space = str " "
 star :: Widget Name
@@ -147,7 +153,8 @@ rightArrow = str ">"
 -- color
 theMap :: AttrMap
 theMap = attrMap V.defAttr
- [ (playerAttr, V.white `on` V.white)
+ [ (darkAttr, fg V.white `V.withStyle` V.bold)
+ , (playerAttr, V.white `on` V.white)
  , (jellyfishAttr, fg V.yellow `V.withStyle` V.bold)
  , (mineAttr, fg V.red `V.withStyle` V.bold)
  , (leftSharkAttr, fg V.blue `V.withStyle` V.bold)

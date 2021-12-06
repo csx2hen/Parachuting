@@ -118,7 +118,7 @@ findModes d = findIndex (d >=) modesOfDepth
 
 -- | change game's relevant mode.
 changeModes :: Game -> Game
-changeModes g = case findModes (g^.depth) of 
+changeModes g = case findModes (g^.depth) of
                   Just x -> g & mode .~ (modesType !! x)
                   Nothing -> g
 
@@ -154,6 +154,10 @@ initState maxDepth =
                   _lastObstaleDepth = lastDepth
                 }
 
+
+-- | Checks to see if the passed-in coordinate is in any Dark
+inDark :: Coordinate -> Player -> Depth -> Bool
+inDark c p d = (last p^._1 - c^._1) ^ 2 + (last p^._2 - c^._2) ^ 2 > max (800 - d) 50
 
 -- | Checks to see if the passed-in coordinate is in any JellyFish
 inJellyFish :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
