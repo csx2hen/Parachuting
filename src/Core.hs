@@ -225,9 +225,10 @@ movePlayer g = case g^.direction of
                 Down -> incDepth (moveObstaclesDir Up g)
 
 -- Moves player handler (Left, Right). Consider left right as a movement
+-- fromMaybe g (checkAlive (movePlayerHorizontally Left g))
 movePlayerSingleStep :: Movement -> Game -> Game
-movePlayerSingleStep Left g  = if shouldLeft g && g^.alive then movePlayerHorizontally Left g else g
-movePlayerSingleStep Right g = if shouldRight g && g^.alive then movePlayerHorizontally Right g else g
+movePlayerSingleStep Left g  = if shouldLeft g && g^.alive then movePlayerHorizontally Left $ fromMaybe g $ do return $ fromMaybe g (checkAlive g) else g
+movePlayerSingleStep Right g = if shouldRight g && g^.alive then movePlayerHorizontally Right $ fromMaybe g $ do return $ fromMaybe g (checkAlive g) else g
 
 -- | Moves player (Left, Right)
 movePlayerHorizontally :: Movement -> Game -> Game
