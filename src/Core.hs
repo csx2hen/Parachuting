@@ -106,7 +106,7 @@ setModes m g = case g^.mode of
 
 -- change mode when we dive to the depth
 modesOfDepth :: [Int]
-modesOfDepth = [50, 10, 5]
+modesOfDepth = [500, 100, 0]
 
 -- modes we have now
 modesType :: [Mode]

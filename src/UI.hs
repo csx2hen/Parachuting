@@ -51,8 +51,7 @@ drawUI :: Game -> [Widget Name]
 drawUI g = [C.center (padRight (Pad 2) (drawGrid g <+> drawStats g))]
 
 drawStats :: Game -> Widget Name
-drawStats g = hLimit 30 (vBox [drwaMode (g^.mode), padTop (Pad 2) (drawDepth (g^.depth)), padTop (Pad 2) (drawBestDepth (g^.maxDepth)),
-                         padTop (Pad 2) (drawGameOver (g^.alive))])
+drawStats g = hLimit 30 (vBox [drawGameOver (g^.alive), padTop (Pad 2) (drwaMode (g^.mode)), padTop (Pad 2) (drawDepth (g^.depth)), padTop (Pad 2) (drawBestDepth (g^.maxDepth))])
 
 drwaMode :: Mode -> Widget n
 drwaMode m = withBorderStyle BS.unicodeRounded
