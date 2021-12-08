@@ -106,7 +106,7 @@ setModes m g = case g^.mode of
 
 -- change mode when we dive to the depth
 modesOfDepth :: [Int]
-modesOfDepth = [50, 10, 5]
+modesOfDepth = [500, 100, 0]
 
 -- modes we have now
 modesType :: [Mode]
@@ -118,7 +118,7 @@ findModes d = findIndex (d >=) modesOfDepth
 
 -- | change game's relevant mode.
 changeModes :: Game -> Game
-changeModes g = case findModes (g^.depth) of 
+changeModes g = case findModes (g^.depth) of
                   Just x -> g & mode .~ (modesType !! x)
                   Nothing -> g
 
@@ -154,6 +154,10 @@ initState maxDepth =
                   _lastObstaleDepth = lastDepth
                 }
 
+
+-- | Checks to see if the passed-in coordinate is in any Dark
+inDark :: Coordinate -> Player -> Depth -> Bool
+inDark c p d = (last p^._1 - c^._1) ^ 2 + (last p^._2 - c^._2) ^ 2 > max (800 - d) 50
 
 -- | Checks to see if the passed-in coordinate is in any JellyFish
 inJellyFish :: Coordinate -> SEQ.Seq (Obstacle, ObstacleType) -> Bool
@@ -221,9 +225,10 @@ movePlayer g = case g^.direction of
                 Down -> incDepth (moveObstaclesDir Up g)
 
 -- Moves player handler (Left, Right). Consider left right as a movement
+-- fromMaybe g (checkAlive (movePlayerHorizontally Left g))
 movePlayerSingleStep :: Movement -> Game -> Game
-movePlayerSingleStep Left g  = if shouldLeft g && g^.alive then movePlayerHorizontally Left g else g
-movePlayerSingleStep Right g = if shouldRight g && g^.alive then movePlayerHorizontally Right g else g
+movePlayerSingleStep Left g  = if shouldLeft g && g^.alive then movePlayerHorizontally Left $ fromMaybe g $ do return $ fromMaybe g (checkAlive g) else g
+movePlayerSingleStep Right g = if shouldRight g && g^.alive then movePlayerHorizontally Right $ fromMaybe g $ do return $ fromMaybe g (checkAlive g) else g
 
 -- | Moves player (Left, Right)
 movePlayerHorizontally :: Movement -> Game -> Game
