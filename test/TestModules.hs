@@ -42,8 +42,32 @@ prop_test_should_right xs = case shouldRight' xs of
 
 prop_test_should_in_jellyfish :: (Int, Int) -> [(Int, Int)] -> Bool
 prop_test_should_in_jellyfish c cs = case inJellyFish' c' (cs', Jellyfish) of
-                                        True -> helper_jellyfish c' cs' == True
-                                        False -> helper_jellyfish c' cs' == False
+                                        True -> helper_obstacle c' cs' == True
+                                        False -> helper_obstacle c' cs' == False
+                                    where
+                                        c' = (helper_transform c) 
+                                        cs' = (helper_transform_list cs)
+
+prop_test_should_in_mine :: (Int, Int) -> [(Int, Int)] -> Bool
+prop_test_should_in_mine c cs = case inMine' c' (cs', Mine) of
+                                        True -> helper_obstacle c' cs' == True
+                                        False -> helper_obstacle c' cs' == False
+                                    where
+                                        c' = (helper_transform c) 
+                                        cs' = (helper_transform_list cs)
+
+prop_test_should_in_left_shark :: (Int, Int) -> [(Int, Int)] -> Bool
+prop_test_should_in_left_shark c cs = case inLeftShark' c' (cs', Mine) of
+                                        True -> helper_obstacle c' cs' == True
+                                        False -> helper_obstacle c' cs' == False
+                                    where
+                                        c' = (helper_transform c) 
+                                        cs' = (helper_transform_list cs)
+                                    
+prop_test_should_in_right_shark :: (Int, Int) -> [(Int, Int)] -> Bool
+prop_test_should_in_right_shark c cs = case inRightShark' c' (cs', Mine) of
+                                        True -> helper_obstacle c' cs' == True
+                                        False -> helper_obstacle c' cs' == False
                                     where
                                         c' = (helper_transform c) 
                                         cs' = (helper_transform_list cs)
@@ -67,7 +91,7 @@ prop_test_crash player cs = case crash' (helper_transform player) ((helper_trans
 -- >>> quickCheck prop_test_should_in_jellyfish
 -- +++ OK, passed 100 tests.
 --
--- >>> helper_jellyfish (helper_transform (0, 0)) (helper_transform_list [(0, 1)])
+-- >>> helper_obstacle (helper_transform (0, 0)) (helper_transform_list [(0, 1)])
 -- False
 --
 -- >>> inJellyFish' (helper_transform (0, 0)) ((helper_transform_list [(0, 1)]), Jellyfish)
@@ -78,7 +102,27 @@ prop_test_crash player cs = case crash' (helper_transform player) ((helper_trans
 -- +++ OK, passed 100 tests.
 --
 
+-- >>> quickCheck prop_test_should_in_mine
+-- +++ OK, passed 100 tests.
+--
 
+
+-- >>> quickCheck prop_test_should_in_left_shark
+-- +++ OK, passed 100 tests.
+--
+
+-- >>> quickCheck prop_test_should_in_right_shark
+-- +++ OK, passed 100 tests.
+--
+
+
+-- >>> prop_test_should_in_right_shark (1,0) [(1,0)]
+-- False
+--
+
+-- >>> inLeftShark' (helper_transform (1,0)) ((helper_transform_list [(1,0)]), Mine)
+-- False
+--
 helper_left :: [Int] -> Bool
 helper_left [] = True
 helper_left (x:xs) = (x>0) && (helper_left xs)
@@ -87,9 +131,9 @@ helper_right :: [Int] -> Bool
 helper_right [] = False
 helper_right (x:xs) = (x < gridWidth - 1) || (helper_right xs)
 
-helper_jellyfish :: Coordinate -> [Coordinate] -> Bool
-helper_jellyfish _ [] = False
-helper_jellyfish (c) (c':cs) = ((c^._1)==c'^._1 && c^._2==c'^._2)||helper_jellyfish c (cs)
+helper_obstacle :: Coordinate -> [Coordinate] -> Bool
+helper_obstacle _ [] = False
+helper_obstacle (c) (c':cs) = ((c^._1)==c'^._1 && c^._2==c'^._2)||helper_obstacle c (cs)
 
 helper_transform :: (Int, Int) -> Coordinate
 helper_transform (x, y) = V2 x y
