@@ -239,15 +239,24 @@ movePlayerHorizontally dir g =
 
 -- check if the palyer should go up
 shouldUp :: Game -> Bool
-shouldUp g = g^.depth > 0
+shouldUp g = shouldUp' $ g^.depth
+
+shouldUp' :: Depth -> Bool
+shouldUp' d = d > 0
 
 -- check if the palyer should go left
 shouldLeft :: Game -> Bool
-shouldLeft g = (minimum [coord^._1 | coord <- g^.player]) > 0
+shouldLeft g = shouldLeft' [coord^._1 | coord <- g^.player]
+
+shouldLeft' :: [Int] -> Bool
+shouldLeft' xs = (xs /= []) && (minimum xs) > 0
 
 -- check if the palyer should go right
 shouldRight :: Game -> Bool
-shouldRight g = (minimum [coord^._1 | coord <- g^.player]) < gridWidth - 1
+shouldRight g = shouldRight' [coord^._1 | coord <- g^.player]
+
+shouldRight' :: [Int] -> Bool
+shouldRight' xs = (xs /= []) && (minimum xs) < gridWidth - 1
 
 -- Obstacle functions
 -- | Move all the obstacles
