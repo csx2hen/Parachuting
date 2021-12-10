@@ -63,7 +63,6 @@ data Game = Game
     _initDepth        :: Depth,
     _maxDepth         :: Depth,
     _alive            :: Bool,
-    _paused           :: Bool,
     _modeMap          :: ModeMap,
     _mode             :: Mode,
     _lastObstaleDepth :: LastDepth
@@ -147,7 +146,6 @@ initState maxDepth =
                   _depth            = 0,
                   _maxDepth         = maxDepth,
                   _alive            = True,
-                  _paused           = False,
                   _initDepth        = 0,
                   _modeMap          = mode,
                   _mode             = Easy,
