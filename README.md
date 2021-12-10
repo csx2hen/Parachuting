@@ -32,7 +32,6 @@ stack exec diving-exe
 - UI: The component is built in Brick, which is the interface for showing the game view, including the character, obstacles and borders.
 
 ## Challenges
-- When an input event is coming, our game will interrupt and handle this event, so the game will not continue if there are plenty of events. -> Try to handle this process in multiple threads or discard duplicated events.
 - Time conflict. Most of our team menbers have several deadlines or interviews recently, so it's hard to find a time to work together. -> Try our best to find a time slot to discuss the function of each part and assign tasks to each menber. Then every menber can do individually.
 
 ## Progress
