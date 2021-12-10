@@ -197,7 +197,7 @@ inRightShark' _ _ = False
 -- | Step forward in time.
 step :: Game -> Game
 step g = fromMaybe g $ do
-  guard $ g^.alive && not (g^.paused)
+  guard $ g^.alive
   return $ fromMaybe (step' g) (checkAlive g)
 
 -- | What to do if we are not dead.
@@ -222,11 +222,15 @@ movePlayer g = case g^.direction of
                 Up -> if shouldUp g then decDepth (moveObstaclesDir Down g) else changeDir Still g
                 Down -> incDepth (moveObstaclesDir Up g)
 
+afterMoveSignleStep :: Game -> Game
+afterMoveSignleStep g = fromMaybe g $ do 
+                        guard (not $ isDead g) 
+                        return g
 -- Moves player handler (Left, Right). Consider left right as a movement
 -- fromMaybe g (checkAlive (movePlayerHorizontally Left g))
 movePlayerSingleStep :: Movement -> Game -> Game
-movePlayerSingleStep Left g  = if shouldLeft g && g^.alive then movePlayerHorizontally Left $ fromMaybe g $ do return $ fromMaybe g (checkAlive g) else g
-movePlayerSingleStep Right g = if shouldRight g && g^.alive then movePlayerHorizontally Right $ fromMaybe g $ do return $ fromMaybe g (checkAlive g) else g
+movePlayerSingleStep Left g  = if shouldLeft g && g^.alive then afterMoveSignleStep (movePlayerHorizontally Left g) else g
+movePlayerSingleStep Right g = if shouldRight g && g^.alive then afterMoveSignleStep (movePlayerHorizontally Right g)  else g
 
 -- | Moves player (Left, Right)
 movePlayerHorizontally :: Movement -> Game -> Game
@@ -247,14 +251,14 @@ shouldLeft :: Game -> Bool
 shouldLeft g = shouldLeft' [coord^._1 | coord <- g^.player]
 
 shouldLeft' :: [Int] -> Bool
-shouldLeft' xs = (xs /= []) && (minimum xs) > 0
+shouldLeft' xs = (xs /= []) && minimum xs > 0
 
 -- check if the palyer should go right
 shouldRight :: Game -> Bool
 shouldRight g = shouldRight' [coord^._1 | coord <- g^.player]
 
 shouldRight' :: [Int] -> Bool
-shouldRight' xs = (xs /= []) && (minimum xs) < gridWidth - 1
+shouldRight' xs = (xs /= []) && minimum xs < gridWidth - 1
 
 -- Obstacle functions
 -- | Move all the obstacles
@@ -320,28 +324,28 @@ createObstacles g = addRandomObstacle RightShark $ addRandomObstacle LeftShark $
 
 -- create obstacle of given type 
 addRandomObstacle :: ObstacleType -> Game -> Game
-addRandomObstacle Jellyfish g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
+addRandomObstacle Jellyfish g =   let (Modes (x:xs) (y:ys) (j:js) ms ls rs) = getModes g
                                       newModes = Modes xs ys js ms ls rs
                                       newObs = createObstacle Jellyfish x
                                     in
                                       if g^.depth - g^.lastObstaleDepth.jellyfish >= j
                                       then setModes newModes g & obstacles %~ (|> newObs) & ((lastObstaleDepth.jellyfish) .~ g^.depth)
                                       else g
-addRandomObstacle Mine      g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
+addRandomObstacle Mine      g =   let (Modes (x:xs) (y:ys) js (m:ms) ls rs) = getModes g
                                       newModes = Modes xs ys js ms ls rs
                                       newObs = createObstacle Mine x
                                     in
                                       if g^.depth - g^.lastObstaleDepth.mine >= m
                                       then setModes newModes g & obstacles %~ (|> newObs) & ((lastObstaleDepth.mine) .~ g^.depth)
                                       else g
-addRandomObstacle LeftShark g =   let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
+addRandomObstacle LeftShark g =   let (Modes (x:xs) (y:ys) js ms (l:ls) rs) = getModes g
                                       newModes = Modes xs ys js ms ls rs
                                       newObs = createObstacle LeftShark y
                                     in
                                       if g^.depth - g^.lastObstaleDepth.leftShark >= l
                                       then setModes newModes g & obstacles %~ (|> newObs) & ((lastObstaleDepth.leftShark) .~ g^.depth)
                                       else g
-addRandomObstacle RightShark g =  let (Modes (x:xs) (y:ys) (j:js) (m:ms) (l:ls) (r:rs)) = getModes g
+addRandomObstacle RightShark g =  let (Modes (x:xs) (y:ys) js ms ls (r:rs)) = getModes g
                                       newModes = Modes xs ys js ms ls rs
                                       newObs = createObstacle RightShark y
                                     in
